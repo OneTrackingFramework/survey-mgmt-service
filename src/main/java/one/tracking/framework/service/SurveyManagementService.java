@@ -50,8 +50,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * FIXME: Current DTOs are placeholder objects and can be adjusted to desired requirements. FIXME:
- * Exception handling FIXME: Inject Questions in Survey CRUD Operations
+ * FIXME: Current DTOs are placeholder objects and can be adjusted to desired requirements. FIXME: Exception handling
+ * FIXME: Inject Questions in Survey CRUD Operations
  *
  * @author Marko Voß
  */
@@ -59,523 +59,577 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class SurveyManagementService {
 
-  @Autowired
-  private SurveyRepository surveyRepository;
+    @Autowired
+    private SurveyRepository surveyRepository;
 
-  @Autowired
-  private ContainerRepository containerRepository;
+    @Autowired
+    private ContainerRepository containerRepository;
 
-  @Autowired
-  private QuestionRepository questionRepository;
+    @Autowired
+    private QuestionRepository questionRepository;
 
-  @Autowired
-  private AnswerRepository answerRepository;
+    @Autowired
+    private AnswerRepository answerRepository;
 
-  @Autowired
-  private SurveyDataExportComponent exportComponent;
+    @Autowired
+    private SurveyDataExportComponent exportComponent;
 
-  public void exportData(final Instant startTime, final Instant endTime,
-      final OutputStream outStream)
-      throws IOException {
+    public void exportData(final Instant startTime, final Instant endTime,
+        final OutputStream outStream)
+        throws IOException {
 
-    this.exportComponent.export(startTime, endTime, outStream);
-  }
+        this.exportComponent.export(startTime, endTime, outStream);
+    }
 
   /*
   Survey
      */
 
-  public SurveyDto createSurvey(final SurveyDto surveyDto) {
+    public SurveyDto createSurvey(final SurveyDto surveyDto) {
 
-    final Survey createdSurvey = this.surveyRepository.save(Survey.builder()
-        //.dependsOn()
-        //.questions(survey)
-        .nameId(surveyDto.getNameId())
-        .title(surveyDto.getTitle())
-        .description((surveyDto.getDescription()))
-        .intervalType(IntervalType.NONE)
-        .reminderType(ReminderType.NONE)
-        .releaseStatus(ReleaseStatusType.RELEASED)
-        //.questions(surveyDto.getQuestions().stream().map(question -> map(question))
-        //.collect(Collectors.toList()))
-        .build());
+        final Survey createdSurvey = this.surveyRepository.save(Survey.builder()
+            //.dependsOn()
+            //.questions(survey)
+            .nameId(surveyDto.getNameId())
+            .title(surveyDto.getTitle())
+            .description((surveyDto.getDescription()))
+            .intervalType(IntervalType.NONE)
+            .reminderType(ReminderType.NONE)
+            .releaseStatus(ReleaseStatusType.RELEASED)
+            //.questions(surveyDto.getQuestions().stream().map(question -> map(question))
+            //.collect(Collectors.toList()))
+            .build());
 
-    return map(createdSurvey);
-  }
-
-  public SurveyDto getSurveyById(final long surveyId) {
-    final Optional<Survey> surveyOptional = surveyRepository.findById(surveyId);
-    if (surveyOptional.isEmpty()) {
-      throw new ResourceNotFoundException("Survey", "id", surveyId);
-    }
-    return map(surveyOptional.get());
-  }
-
-  public List<SurveyDto> getAllSurveys() {
-    final List<SurveyDto> surveys = new ArrayList<>();
-    surveyRepository.findAll()
-        .forEach(survey -> surveys.add(DtoMapper.map(survey)));
-    return surveys;
-  }
-
-  public SurveyDto updateSurvey(final long surveyId, final SurveyDto newSurveyDto) {
-
-    // get survey from DB
-    final SurveyDto surveyDto = getSurveyById(surveyId);
-
-    // update existing survey with new survey
-    return createSurvey(surveyDto.builder()
-        .id(surveyId)
-        .nameId(newSurveyDto.getNameId())
-        .title(newSurveyDto.getTitle())
-        .description(newSurveyDto.getDescription())
-        .build());
-  }
-
-  public void deleteSurveyById(final long surveyId) {
-    surveyRepository.deleteById(surveyId);
-  }
-
-  /**
-   * @param nameId
-   * @return
-   */
-  public Survey createNewSurveyVersion(final String nameId) {
-
-    final List<Survey> surveys = this.surveyRepository.findByNameIdOrderByVersionDesc(nameId);
-
-    if (surveys == null || surveys.isEmpty()) {
-      throw new IllegalArgumentException("No survey found for nameId: " + nameId);
+        return map(createdSurvey);
     }
 
-    if (surveys.get(0).getReleaseStatus() != ReleaseStatusType.RELEASED) {
-      throw new ConflictException("Current survey with nameId: " + nameId + " is not released.");
+    public SurveyDto getSurveyById(final long surveyId) {
+        final Optional<Survey> surveyOptional = surveyRepository.findById(surveyId);
+        if (surveyOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Survey", "id", surveyId);
+        }
+        return map(surveyOptional.get());
     }
 
-    final Survey currentRelease = surveys.get(0);
+    public List<SurveyDto> getAllSurveys() {
+        final List<SurveyDto> surveys = new ArrayList<>();
+        surveyRepository.findAll()
+            .forEach(survey -> surveys.add(DtoMapper.map(survey)));
+        return surveys;
+    }
 
-    final List<Question> copiedQuestions = copyQuestions(currentRelease.getQuestions());
+    public SurveyDto updateSurvey(final long surveyId, final SurveyDto newSurveyDto) {
 
-    return this.surveyRepository.save(currentRelease.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .version(currentRelease.getVersion() + 1)
-        .releaseStatus(ReleaseStatusType.NEW)
-        .questions(copiedQuestions)
-        .build());
-  }
+        // get survey from DB
+        final SurveyDto surveyDto = getSurveyById(surveyId);
 
-  /**
-   * @param
-   * @param data
-   * @return
-   */
-  public Question updateQuestion(final QuestionDto data) {
+        // update existing survey with new survey
+        return createSurvey(surveyDto.builder()
+            .id(surveyId)
+            .nameId(newSurveyDto.getNameId())
+            .title(newSurveyDto.getTitle())
+            .description(newSurveyDto.getDescription())
+            .build());
+    }
 
-    final Question question = this.questionRepository.findById(data.getId()).get();
+    public void deleteSurveyById(final long surveyId) {
+        surveyRepository.deleteById(surveyId);
+    }
 
-    /*
-     * We have to check, if the specified ID in data is actually part of the current survey entity. So
-     * we have to look for it and because of that, we do not need to request the question entity via the
-     * question repository.
+    /**
+     * @param nameId
+     * @return
      */
-    final SearchResult result = searchQuestion(question);
+    public Survey createNewSurveyVersion(final String nameId) {
 
-    // Survey must not be released
-    if (result.getSurvey().getReleaseStatus() == ReleaseStatusType.RELEASED) {
-      throw new ConflictException(
-          "Related survey with nameId: " + result.getSurvey().getNameId()
-              + " got released already.");
+        final List<Survey> surveys = this.surveyRepository.findByNameIdOrderByVersionDesc(nameId);
+
+        if (surveys == null || surveys.isEmpty()) {
+            throw new IllegalArgumentException("No survey found for nameId: " + nameId);
+        }
+
+        if (surveys.get(0).getReleaseStatus() != ReleaseStatusType.RELEASED) {
+            throw new ConflictException("Current survey with nameId: " + nameId + " is not released.");
+        }
+
+        final Survey currentRelease = surveys.get(0);
+
+        final List<Question> copiedQuestions = copyQuestions(currentRelease.getQuestions());
+
+        return this.surveyRepository.save(currentRelease.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .version(currentRelease.getVersion() + 1)
+            .releaseStatus(ReleaseStatusType.NEW)
+            .questions(copiedQuestions)
+            .build());
     }
 
-    final int currentRanking = question.getRanking();
-
-    final QuestionType dataType = data.getType();
-
-    if (!question.getType().equals(dataType)) {
-      throw new IllegalArgumentException(
-          "The question type does not match the expected question type. Expected: "
-              + question.getType() + "; Received: " + dataType);
+    public Question updateQuestionInSurvey(final Long surveyId, final QuestionDto questionDto) {
+        if (!surveyRepository.findById(surveyId).isPresent()) {
+            throw new ResourceNotFoundException("Survey", "id", surveyId);
+        }
+        //FIXME : updateQuestion implementation may be need adjustment as it not working correctly.
+        return updateQuestion(questionDto);
     }
 
-    if (data.getOrder() >= result.getContainer().getQuestions().size()) {
-      throw new IllegalArgumentException(
-          "The specified order is greater than the possible value. Expected: "
-              + result.getContainer().getQuestions().size() + " Received: " + data.getOrder());
+    /**
+     * @param
+     * @param data
+     * @return
+     */
+    public Question updateQuestion(final QuestionDto data) {
+
+        final Question question = this.questionRepository.findById(data.getId()).get();
+
+        /*
+         * We have to check, if the specified ID in data is actually part of the current survey entity. So
+         * we have to look for it and because of that, we do not need to request the question entity via the
+         * question repository.
+         */
+        final SearchResult result = searchQuestion(question);
+
+        // Survey must not be released
+        if (result.getSurvey().getReleaseStatus() == ReleaseStatusType.RELEASED) {
+            throw new ConflictException(
+                "Related survey with nameId: " + result.getSurvey().getNameId()
+                    + " got released already.");
+        }
+
+        final int currentRanking = question.getRanking();
+
+        final QuestionType dataType = data.getType();
+
+        if (!question.getType().equals(dataType)) {
+            throw new IllegalArgumentException(
+                "The question type does not match the expected question type. Expected: "
+                    + question.getType() + "; Received: " + dataType);
+        }
+
+        if (data.getOrder() >= result.getContainer().getQuestions().size()) {
+            throw new IllegalArgumentException(
+                "The specified order is greater than the possible value. Expected: "
+                    + result.getContainer().getQuestions().size() + " Received: " + data.getOrder());
+        }
+
+        updateQuestionData(question, data);
+
+        // Persist updates
+        final Question updatedQuestion = this.questionRepository.save(question);
+
+        // Update ranking of siblings if required
+        if (question.getRanking() != currentRanking) {
+            updateRankings(result.getContainer(), updatedQuestion);
+        }
+
+        return updatedQuestion;
     }
 
-    updateQuestionData(question, data);
+    public Question addQuestion(final Long containerId, final QuestionDto data) {
 
-    // Persist updates
-    final Question updatedQuestion = this.questionRepository.save(question);
+        final Container container = this.containerRepository.findById(containerId).get();
 
-    // Update ranking of siblings if required
-    if (question.getRanking() != currentRanking) {
-      updateRankings(result.getContainer(), updatedQuestion);
+        return null;
     }
 
-    return updatedQuestion;
-  }
+    public QuestionDto createQuestionInSurvey(final Long surveyId, final QuestionDto questionDto) {
 
-  public Question addQuestion(final Long containerId, final QuestionDto data) {
+        final Survey survey = this.surveyRepository.findById(surveyId).get();
+        final Container surveyContainer = this.containerRepository.findById(survey.getId()).get();
 
-    final Container container = this.containerRepository.findById(containerId).get();
+        // create question for specific type
+        Question createdQuestion = null;
+        switch (questionDto.getType()) {
+            case BOOL:
+                createdQuestion = createQuestion(surveyContainer, (BooleanQuestionDto) questionDto);
+                break;
+            case TEXT:
+                createdQuestion = createQuestion(surveyContainer, (TextQuestionDto) questionDto);
+                break;
+            case CHOICE:
+                createdQuestion = createQuestion(surveyContainer, (ChoiceQuestionDto) questionDto);
+                break;
+            default:
+                break;
+        }
+        //TODO more questions types need to be added
 
-    return null;
-  }
+        survey.getQuestions().add(createdQuestion);
 
-  private Question createQuestion(final Container parentContainer, final BooleanQuestionDto data) {
-
-    return this.questionRepository.save(BooleanQuestion.builder()
-        .question(data.getQuestion())
-        .ranking(parentContainer.getQuestions().size())
-        .defaultAnswer(data.getDefaultAnswer())
-        .build());
-  }
-
-  private Question createQuestion(final Container parentContainer, final ChoiceQuestionDto data) {
-
-    return this.questionRepository.save(ChoiceQuestion.builder()
-        .question(data.getQuestion())
-        .ranking(parentContainer.getQuestions().size())
-        .build());
-  }
-
-  private Question createQuestion(final Container parentContainer, final RangeQuestionDto data) {
-
-    return this.questionRepository.save(RangeQuestion.builder()
-        .question(data.getQuestion())
-        .ranking(parentContainer.getQuestions().size())
-        .defaultAnswer(data.getDefaultValue())
-        .minText(data.getMinText())
-        .maxText(data.getMaxText())
-        .minValue(data.getMinValue())
-        .maxValue(data.getMaxValue())
-        .build());
-  }
-
-  private Question createQuestion(final Container parentContainer, final TextQuestionDto data) {
-
-    return this.questionRepository.save(TextQuestion.builder()
-        .question(data.getQuestion())
-        .ranking(parentContainer.getQuestions().size())
-        .multiline(data.isMultiline())
-        .length(data.getLength())
-        .build());
-  }
-
-  private Question createQuestion(final Container parentContainer,
-      final ChecklistQuestionDto data) {
-
-    return this.questionRepository.save(ChecklistQuestion.builder()
-        .question(data.getQuestion())
-        .ranking(parentContainer.getQuestions().size())
-        .build());
-  }
-
-  /**
-   * @param
-   * @param updatedQuestion
-   */
-  private void updateRankings(final Container container, final Question updatedQuestion) {
-
-    for (int i = 0; i < container.getQuestions().size(); i++) {
-
-      final Question currentSibling = container.getQuestions().get(i);
-
-      // Skip updating updatedQuestion
-      if (currentSibling.getId().equals(updatedQuestion.getId())) {
-        continue;
-      }
-
-      if (currentSibling.getRanking() <= updatedQuestion.getRanking()) {
-
-        currentSibling.setRanking(i);
-        this.questionRepository.save(currentSibling);
-
-      } else {
-        break;
-      }
-    }
-  }
-
-  private SearchResult searchQuestion(final Question question) {
-
-    if (question == null) {
-      return null;
+        this.surveyRepository.save(survey);
+        return DtoMapper.map(createdQuestion);
     }
 
-    final Optional<Container> originContainerOp =
-        this.containerRepository.findByQuestionsIn(Collections.singleton(question));
+    public List<QuestionDto> getAllQuestionsInSurvey(final Long surveyId) {
 
-    if (originContainerOp.isEmpty()) {
-      throw new IllegalStateException(
-          "Unexpected state. No container found containing question id: " + question.getId());
+        return this.surveyRepository.findById(surveyId).map(survey -> DtoMapper.map(survey.getQuestions()))
+            .orElseThrow(() -> new ResourceNotFoundException("survey", "id", surveyId));
     }
 
-    Optional<Container> containerOp = originContainerOp;
+    public QuestionDto getQuestionInSurvey(final Long surveyId, final Long questionId) {
 
-    // Iterate up the tree to the root and check if question belongs to expected survey
-    while (containerOp.isPresent()) {
-
-      final Container container = containerOp.get();
-      if (container.getParent() != null) {
-
-        containerOp =
-            this.containerRepository
-                .findByQuestionsIn(Collections.singleton(container.getParent()));
-
-      } else if (container.getType() != ContainerType.SURVEY) {
-
-        throw new IllegalStateException(
-            "Expected survey to be root of the tree. Found root container id: " + container
-                .getId());
-
-      } else {
-
-        return SearchResult.builder()
-            .container(originContainerOp.get())
-            .survey((Survey) container)
-            .build();
-      }
-    }
-    return null;
-
-
-  }
-
-  private void updateQuestionData(final Question question, final QuestionDto data) {
-
-    question.setQuestion(data.getQuestion());
-    question.setRanking(data.getOrder());
-
-    switch (question.getType()) {
-      case BOOL:
-        updateQuestion((BooleanQuestion) question, (BooleanQuestionDto) data);
-        break;
-      case CHECKLIST:
-        // nothing special
-        break;
-      case CHECKLIST_ENTRY:
-        updateQuestion((ChecklistEntry) question, (ChecklistEntryDto) data);
-        break;
-      case CHOICE:
-        updateQuestion((ChoiceQuestion) question, (ChoiceQuestionDto) data);
-        break;
-      case RANGE:
-        updateQuestion((RangeQuestion) question, (RangeQuestionDto) data);
-        break;
-      case TEXT:
-        updateQuestion((TextQuestion) question, (TextQuestionDto) data);
-        break;
-      default:
-        break;
-    }
-  }
-
-  private void updateQuestion(final BooleanQuestion question, final BooleanQuestionDto data) {
-
-    question.setDefaultAnswer(data.getDefaultAnswer());
-  }
-
-  private void updateQuestion(final ChecklistEntry question, final ChecklistEntryDto data) {
-
-    question.setDefaultAnswer(data.getDefaultAnswer());
-  }
-
-  private void updateQuestion(final ChoiceQuestion question, final ChoiceQuestionDto data) {
-
-    // FIXME Update answers
-
-    final Optional<Answer> answerOp = question.getAnswers().stream()
-        .filter(p -> p.getId().equals(data.getDefaultAnswer()))
-        .reduce((a, b) -> {
-          throw new IllegalStateException("Multiple elements: " + a + ", " + b);
-        });
-
-    if (answerOp.isEmpty()) {
-      throw new IllegalArgumentException(
-          "Specified default answer ID does not exists in the question scope. Specified: " +
-              data.getDefaultAnswer());
+        return getAllQuestionsInSurvey(surveyId).stream().filter(questionDto -> questionId.equals(questionDto.getId()))
+            .findFirst().orElseThrow(() -> new ResourceNotFoundException("question", "id", questionId));
     }
 
-    question.setDefaultAnswer(answerOp.get());
-    question.setMultiple(data.isMultiple());
-  }
-
-  private void updateQuestion(final RangeQuestion question, final RangeQuestionDto data) {
-
-    question.setDefaultAnswer(data.getDefaultValue());
-    question.setMaxText(data.getMaxText());
-    question.setMaxValue(data.getMaxValue());
-    question.setMinText(data.getMinText());
-    question.setMinValue(data.getMinValue());
-  }
-
-  private void updateQuestion(final TextQuestion question, final TextQuestionDto data) {
-
-    question.setLength(data.getLength());
-    question.setMultiline(data.isMultiline());
-  }
-
-  private List<Question> copyQuestions(final List<Question> questions) {
-
-    if (questions == null) {
-      return null;
+    public void deleteQuestion(final long questionId) {
+        questionRepository.deleteById(questionId);
     }
 
-    final List<Question> copies = new ArrayList<>(questions.size());
 
-    for (final Question question : questions) {
+    private Question createQuestion(final Container parentContainer, final BooleanQuestionDto data) {
 
-      switch (question.getType()) {
-        case BOOL:
-          copies.add(copyQuestion((BooleanQuestion) question));
-          break;
-        case CHECKLIST:
-          copies.add(copyQuestion((ChecklistQuestion) question));
-          break;
-        case CHOICE:
-          copies.add(copyQuestion((ChoiceQuestion) question));
-          break;
-        case RANGE:
-          copies.add(copyQuestion((RangeQuestion) question));
-          break;
-        case TEXT:
-          copies.add(copyQuestion((TextQuestion) question));
-          break;
-        default:
-          break;
-
-      }
+        return this.questionRepository.save(BooleanQuestion.builder()
+            .question(data.getQuestion())
+            .ranking(parentContainer.getQuestions().size())
+            .defaultAnswer(data.getDefaultAnswer())
+            .build());
     }
 
-    return copies;
-  }
+    private Question createQuestion(final Container parentContainer, final ChoiceQuestionDto data) {
 
-  private ChecklistQuestion copyQuestion(final ChecklistQuestion question) {
-
-    final List<ChecklistEntry> entries = new ArrayList<>();
-
-    for (final ChecklistEntry entry : question.getEntries()) {
-      entries.add(copyQuestion(entry));
+        return this.questionRepository.save(ChoiceQuestion.builder()
+            .question(data.getQuestion())
+            .ranking(parentContainer.getQuestions().size())
+            .build());
     }
 
-    return this.questionRepository.save(question.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .entries(entries)
-        .build());
-  }
+    private Question createQuestion(final Container parentContainer, final RangeQuestionDto data) {
 
-  private ChecklistEntry copyQuestion(final ChecklistEntry entry) {
-
-    return this.questionRepository.save(entry.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .build());
-  }
-
-  private BooleanQuestion copyQuestion(final BooleanQuestion question) {
-
-    final BooleanContainer container = copyContainer(question.getContainer());
-
-    return this.questionRepository.save(question.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .container(container)
-        .build());
-  }
-
-  private Question copyQuestion(final RangeQuestion question) {
-
-    return this.questionRepository.save(question.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .build());
-  }
-
-  private TextQuestion copyQuestion(final TextQuestion question) {
-
-    return this.questionRepository.save(question.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .build());
-  }
-
-  private ChoiceQuestion copyQuestion(final ChoiceQuestion question) {
-
-    final List<Answer> answers = copyAnswers(question.getAnswers());
-
-    final ChoiceContainer container = copyContainer(question.getContainer(), answers);
-
-    return this.questionRepository.save(question.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .answers(answers)
-        .container(container)
-        .build());
-  }
-
-  private List<Answer> copyAnswers(final List<Answer> answers) {
-
-    if (answers == null || answers.isEmpty()) {
-      return null;
+        return this.questionRepository.save(RangeQuestion.builder()
+            .question(data.getQuestion())
+            .ranking(parentContainer.getQuestions().size())
+            .defaultAnswer(data.getDefaultValue())
+            .minText(data.getMinText())
+            .maxText(data.getMaxText())
+            .minValue(data.getMinValue())
+            .maxValue(data.getMaxValue())
+            .build());
     }
 
-    final List<Answer> copies = new ArrayList<>(answers.size());
+    private Question createQuestion(final Container parentContainer, final TextQuestionDto data) {
 
-    for (final Answer answer : answers) {
-
-      copies.add(this.answerRepository.save(answer.toBuilder()
-          .id(null)
-          .createdAt(null)
-          .build()));
+        return this.questionRepository.save(TextQuestion.builder()
+            .question(data.getQuestion())
+            .ranking(parentContainer.getQuestions().size())
+            .multiline(data.isMultiline())
+            .length(data.getLength())
+            .build());
     }
 
-    return copies;
-  }
+    private Question createQuestion(final Container parentContainer,
+        final ChecklistQuestionDto data) {
 
-  private BooleanContainer copyContainer(final BooleanContainer container) {
-
-    if (container == null) {
-      return null;
+        return this.questionRepository.save(ChecklistQuestion.builder()
+            .question(data.getQuestion())
+            .ranking(parentContainer.getQuestions().size())
+            .build());
     }
 
-    final List<Question> questions = copyQuestions(container.getQuestions());
+    /**
+     * @param
+     * @param updatedQuestion
+     */
+    private void updateRankings(final Container container, final Question updatedQuestion) {
 
-    return this.containerRepository.save(container.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .questions(questions)
-        .build());
-  }
+        for (int i = 0; i < container.getQuestions().size(); i++) {
 
-  private ChoiceContainer copyContainer(final ChoiceContainer container,
-      final List<Answer> answersCopy) {
+            final Question currentSibling = container.getQuestions().get(i);
 
-    if (container == null) {
-      return null;
+            // Skip updating updatedQuestion
+            if (currentSibling.getId().equals(updatedQuestion.getId())) {
+                continue;
+            }
+
+            if (currentSibling.getRanking() <= updatedQuestion.getRanking()) {
+
+                currentSibling.setRanking(i);
+                this.questionRepository.save(currentSibling);
+
+            } else {
+                break;
+            }
+        }
     }
 
-    final List<Question> questions = copyQuestions(container.getQuestions());
+    private SearchResult searchQuestion(final Question question) {
 
-    List<Answer> dependsOn = null;
+        if (question == null) {
+            return null;
+        }
 
-    if (container.getDependsOn() != null && !container.getDependsOn().isEmpty()) {
+        final Optional<Container> originContainerOp =
+            this.containerRepository.findByQuestionsIn(Collections.singleton(question));
 
-      dependsOn = answersCopy.stream()
-          .filter(p -> container.getDependsOn().stream()
-              .anyMatch(m -> m.getValue().equals(p.getValue())))
-          .collect(Collectors.toList());
+        if (originContainerOp.isEmpty()) {
+            throw new IllegalStateException(
+                "Unexpected state. No container found containing question id: " + question.getId());
+        }
+
+        Optional<Container> containerOp = originContainerOp;
+
+        // Iterate up the tree to the root and check if question belongs to expected survey
+        while (containerOp.isPresent()) {
+
+            final Container container = containerOp.get();
+            if (container.getParent() != null) {
+
+                containerOp =
+                    this.containerRepository
+                        .findByQuestionsIn(Collections.singleton(container.getParent()));
+
+            } else if (container.getType() != ContainerType.SURVEY) {
+
+                throw new IllegalStateException(
+                    "Expected survey to be root of the tree. Found root container id: " + container
+                        .getId());
+
+            } else {
+
+                return SearchResult.builder()
+                    .container(originContainerOp.get())
+                    .survey((Survey) container)
+                    .build();
+            }
+        }
+        return null;
+
+
     }
 
-    return this.containerRepository.save(container.toBuilder()
-        .id(null)
-        .createdAt(null)
-        .questions(questions)
-        .dependsOn(dependsOn)
-        .build());
-  }
+    private void updateQuestionData(final Question question, final QuestionDto data) {
+
+        question.setQuestion(data.getQuestion());
+        question.setRanking(data.getOrder());
+
+        switch (question.getType()) {
+            case BOOL:
+                updateQuestion((BooleanQuestion) question, (BooleanQuestionDto) data);
+                break;
+            case CHECKLIST:
+                // nothing special
+                break;
+            case CHECKLIST_ENTRY:
+                updateQuestion((ChecklistEntry) question, (ChecklistEntryDto) data);
+                break;
+            case CHOICE:
+                updateQuestion((ChoiceQuestion) question, (ChoiceQuestionDto) data);
+                break;
+            case RANGE:
+                updateQuestion((RangeQuestion) question, (RangeQuestionDto) data);
+                break;
+            case TEXT:
+                updateQuestion((TextQuestion) question, (TextQuestionDto) data);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void updateQuestion(final BooleanQuestion question, final BooleanQuestionDto data) {
+
+        question.setDefaultAnswer(data.getDefaultAnswer());
+    }
+
+    private void updateQuestion(final ChecklistEntry question, final ChecklistEntryDto data) {
+
+        question.setDefaultAnswer(data.getDefaultAnswer());
+    }
+
+    private void updateQuestion(final ChoiceQuestion question, final ChoiceQuestionDto data) {
+
+        // FIXME Update answers
+
+        final Optional<Answer> answerOp = question.getAnswers().stream()
+            .filter(p -> p.getId().equals(data.getDefaultAnswer()))
+            .reduce((a, b) -> {
+                throw new IllegalStateException("Multiple elements: " + a + ", " + b);
+            });
+
+        if (answerOp.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Specified default answer ID does not exists in the question scope. Specified: " +
+                    data.getDefaultAnswer());
+        }
+
+        question.setDefaultAnswer(answerOp.get());
+        question.setMultiple(data.isMultiple());
+    }
+
+    private void updateQuestion(final RangeQuestion question, final RangeQuestionDto data) {
+
+        question.setDefaultAnswer(data.getDefaultValue());
+        question.setMaxText(data.getMaxText());
+        question.setMaxValue(data.getMaxValue());
+        question.setMinText(data.getMinText());
+        question.setMinValue(data.getMinValue());
+    }
+
+    private void updateQuestion(final TextQuestion question, final TextQuestionDto data) {
+
+        question.setLength(data.getLength());
+        question.setMultiline(data.isMultiline());
+    }
+
+    private List<Question> copyQuestions(final List<Question> questions) {
+
+        if (questions == null) {
+            return null;
+        }
+
+        final List<Question> copies = new ArrayList<>(questions.size());
+
+        for (final Question question : questions) {
+
+            switch (question.getType()) {
+                case BOOL:
+                    copies.add(copyQuestion((BooleanQuestion) question));
+                    break;
+                case CHECKLIST:
+                    copies.add(copyQuestion((ChecklistQuestion) question));
+                    break;
+                case CHOICE:
+                    copies.add(copyQuestion((ChoiceQuestion) question));
+                    break;
+                case RANGE:
+                    copies.add(copyQuestion((RangeQuestion) question));
+                    break;
+                case TEXT:
+                    copies.add(copyQuestion((TextQuestion) question));
+                    break;
+                default:
+                    break;
+
+            }
+        }
+
+        return copies;
+    }
+
+    private ChecklistQuestion copyQuestion(final ChecklistQuestion question) {
+
+        final List<ChecklistEntry> entries = new ArrayList<>();
+
+        for (final ChecklistEntry entry : question.getEntries()) {
+            entries.add(copyQuestion(entry));
+        }
+
+        return this.questionRepository.save(question.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .entries(entries)
+            .build());
+    }
+
+    private ChecklistEntry copyQuestion(final ChecklistEntry entry) {
+
+        return this.questionRepository.save(entry.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .build());
+    }
+
+    private BooleanQuestion copyQuestion(final BooleanQuestion question) {
+
+        final BooleanContainer container = copyContainer(question.getContainer());
+
+        return this.questionRepository.save(question.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .container(container)
+            .build());
+    }
+
+    private Question copyQuestion(final RangeQuestion question) {
+
+        return this.questionRepository.save(question.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .build());
+    }
+
+    private TextQuestion copyQuestion(final TextQuestion question) {
+
+        return this.questionRepository.save(question.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .build());
+    }
+
+    private ChoiceQuestion copyQuestion(final ChoiceQuestion question) {
+
+        final List<Answer> answers = copyAnswers(question.getAnswers());
+
+        final ChoiceContainer container = copyContainer(question.getContainer(), answers);
+
+        return this.questionRepository.save(question.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .answers(answers)
+            .container(container)
+            .build());
+    }
+
+    private List<Answer> copyAnswers(final List<Answer> answers) {
+
+        if (answers == null || answers.isEmpty()) {
+            return null;
+        }
+
+        final List<Answer> copies = new ArrayList<>(answers.size());
+
+        for (final Answer answer : answers) {
+
+            copies.add(this.answerRepository.save(answer.toBuilder()
+                .id(null)
+                .createdAt(null)
+                .build()));
+        }
+
+        return copies;
+    }
+
+    private BooleanContainer copyContainer(final BooleanContainer container) {
+
+        if (container == null) {
+            return null;
+        }
+
+        final List<Question> questions = copyQuestions(container.getQuestions());
+
+        return this.containerRepository.save(container.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .questions(questions)
+            .build());
+    }
+
+    private ChoiceContainer copyContainer(final ChoiceContainer container,
+        final List<Answer> answersCopy) {
+
+        if (container == null) {
+            return null;
+        }
+
+        final List<Question> questions = copyQuestions(container.getQuestions());
+
+        List<Answer> dependsOn = null;
+
+        if (container.getDependsOn() != null && !container.getDependsOn().isEmpty()) {
+
+            dependsOn = answersCopy.stream()
+                .filter(p -> container.getDependsOn().stream()
+                    .anyMatch(m -> m.getValue().equals(p.getValue())))
+                .collect(Collectors.toList());
+        }
+
+        return this.containerRepository.save(container.toBuilder()
+            .id(null)
+            .createdAt(null)
+            .questions(questions)
+            .dependsOn(dependsOn)
+            .build());
+    }
+
 
 }

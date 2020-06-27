@@ -1,6 +1,3 @@
-/**
- *
- */
 package one.tracking.framework.web;
 
 import java.io.IOException;
@@ -13,11 +10,15 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import one.tracking.framework.dto.ParticipantInvitationDto;
 import one.tracking.framework.dto.meta.SurveyDto;
+import one.tracking.framework.dto.meta.question.QuestionDto;
+import one.tracking.framework.repo.ContainerRepository;
+import one.tracking.framework.repo.QuestionRepository;
 import one.tracking.framework.service.SurveyManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +32,6 @@ import springfox.documentation.annotations.ApiIgnore;
 
 /**
  * @author Marko Voß
- *
  */
 @RestController
 @RequestMapping("/manage")
@@ -40,228 +40,245 @@ public class SurveyManagementController {
   /*@Autowired
   private AuthService authService;*/
 
-  @Autowired
-  private SurveyManagementService surveyManagementService;
+    @Autowired
+    ContainerRepository containerRepository;
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/test")
-  public Authentication testAD(
-      @ApiIgnore final Authentication authentication) {
+    @Autowired
+    QuestionRepository questionRepository;
 
-    return authentication;
-  }
-  /*
-   * Participants
-   */
+    @Autowired
+    private SurveyManagementService surveyManagementService;
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/participant/invite")
-  public void registerParticipant(
-      @RequestBody
-      @Valid final ParticipantInvitationDto registration,
-      @ApiIgnore final Authentication authentication) throws IOException {
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/test")
+    public Authentication testAD(
+        @ApiIgnore final Authentication authentication) {
 
-    // this.authService.registerParticipant(registration, true);
-  }
+        return authentication;
+    }
+    /*
+     * Participants
+     */
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/participant/import/upload",
-      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public List<String> uploadParticipantsFile(
-      @RequestParam("file") final MultipartFile file,
-      @ApiIgnore final Authentication authentication) throws IOException {
-    return List.of();
-    // return this.authService.uploadParticipantsFile(null, file);
-  }
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/participant/invite")
+    public void registerParticipant(
+        @RequestBody
+        @Valid final ParticipantInvitationDto registration,
+        @ApiIgnore final Authentication authentication) throws IOException {
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/participant/import/perform")
-  public void importParticipants(
-      @RequestParam("headerIndex") final int selectedHeaderIndex,
-      @ApiIgnore final Authentication authentication) throws Exception {
+        // this.authService.registerParticipant(registration, true);
+    }
 
-    //this.authService.performParticipantsImport(null, selectedHeaderIndex);
-  }
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/participant/import/upload",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public List<String> uploadParticipantsFile(
+        @RequestParam("file") final MultipartFile file,
+        @ApiIgnore final Authentication authentication) throws IOException {
+        return List.of();
+        // return this.authService.uploadParticipantsFile(null, file);
+    }
 
-  /*
-   * Export
-   */
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/participant/import/perform")
+    public void importParticipants(
+        @RequestParam("headerIndex") final int selectedHeaderIndex,
+        @ApiIgnore final Authentication authentication) throws Exception {
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/export")
-  public void export(
-      @RequestParam("from")
-      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime startTime,
-      @RequestParam("to")
-      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime endTime,
-      @ApiIgnore final HttpServletResponse response) throws IOException {
+        //this.authService.performParticipantsImport(null, selectedHeaderIndex);
+    }
 
-    Assert.isTrue(startTime.isBefore(endTime),
-        "'from' datetime value must be before 'to' datetime value.");
+    /*
+     * Export
+     */
 
-    final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")
-        // .withLocale(Locale.UK)
-        .withZone(ZoneOffset.UTC);
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/export")
+    public void export(
+        @RequestParam("from")
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime startTime,
+        @RequestParam("to")
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime endTime,
+        @ApiIgnore final HttpServletResponse response) throws IOException {
 
-    final String filename = "export_" + formatter.format(Instant.now()) + ".xlsx";
+        Assert.isTrue(startTime.isBefore(endTime),
+            "'from' datetime value must be before 'to' datetime value.");
 
-    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    response
-        .setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")
+            // .withLocale(Locale.UK)
+            .withZone(ZoneOffset.UTC);
 
-    this.surveyManagementService.exportData(
-        startTime.toInstant(ZoneOffset.UTC),
-        endTime.toInstant(ZoneOffset.UTC),
-        response.getOutputStream());
-  }
+        final String filename = "export_" + formatter.format(Instant.now()) + ".xlsx";
 
-  /*
-   * Surveys
-   */
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response
+            .setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey")
-  public List<SurveyDto> getSurveys() {
+        this.surveyManagementService.exportData(
+            startTime.toInstant(ZoneOffset.UTC),
+            endTime.toInstant(ZoneOffset.UTC),
+            response.getOutputStream());
+    }
 
-    return surveyManagementService.getAllSurveys();
-  }
+    /*
+     * Surveys
+     */
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey/{surveyId}")
-  public SurveyDto getSurvey(@PathVariable("surveyId") final Long surveyId) {
-    return surveyManagementService.getSurveyById(surveyId);
-  }
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey")
+    public List<SurveyDto> getSurveys() {
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey")
-  public SurveyDto createSurvey(@RequestBody final SurveyDto surveyDto) {
+        return surveyManagementService.getAllSurveys();
+    }
 
-    return surveyManagementService.createSurvey(surveyDto);
-  }
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey/{surveyId}")
+    public SurveyDto getSurvey(@PathVariable("surveyId") final Long surveyId) {
+        return surveyManagementService.getSurveyById(surveyId);
+    }
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey/{surveyId}")
-  public SurveyDto updateSurvey(@PathVariable("surveyId") final Long surveyId,
-      @RequestBody final SurveyDto surveyDto) {
-    return surveyManagementService.updateSurvey(surveyId, surveyDto);
-  }
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey")
+    public SurveyDto createSurvey(@RequestBody final SurveyDto surveyDto) {
 
-  @RequestMapping(
-      method = RequestMethod.DELETE,
-      path = "/survey/{surveyId}")
-  public void deleteSurvey(@PathVariable("surveyId") final Long surveyId) {
-    surveyManagementService.deleteSurveyById(surveyId);
-  }
+        return surveyManagementService.createSurvey(surveyDto);
+    }
+
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey/{surveyId}")
+    public SurveyDto updateSurvey(@PathVariable("surveyId") final Long surveyId,
+        @RequestBody final SurveyDto surveyDto) {
+        return surveyManagementService.updateSurvey(surveyId, surveyDto);
+    }
+
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        path = "/survey/{surveyId}")
+    public void deleteSurvey(@PathVariable("surveyId") final Long surveyId) {
+        surveyManagementService.deleteSurveyById(surveyId);
+    }
 
 
 
-  /*
-   * Questions
-   */
+    /*
+     * Questions
+     */
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey/{surveyId}/question")
-  public void getQuestions(
-      @PathVariable("surveyId") final Long surveyId/* TODO */) {
-    throw new UnsupportedOperationException();
-  }
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey/{surveyId}/questions")
+    public List<QuestionDto> getQuestions(
+        @PathVariable("surveyId") final Long surveyId) {
+        return surveyManagementService.getAllQuestionsInSurvey(surveyId);
+    }
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey/{surveyId}/question/{questionId}")
-  public void getQuestion(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId) {
-    throw new UnsupportedOperationException();
-  }
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey/{surveyId}/question/{questionId}")
+    public QuestionDto getQuestion(
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId) {
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey/{surveyId}/question")
-  public void createQuestion(/* TODO */
-      @PathVariable("surveyId") final Long surveyId) {
-    throw new UnsupportedOperationException();
-  }
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey/{surveyId}/question/{questionId}")
-  public void updateQuestion(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId) {
-    throw new UnsupportedOperationException();
-  }
+        return surveyManagementService.getQuestionInSurvey(surveyId, questionId);
 
-  @RequestMapping(
-      method = RequestMethod.DELETE,
-      path = "/survey/{surveyId}/question/{questionId}")
-  public void deleteQuestion(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId) {
-    throw new UnsupportedOperationException();
-  }
+    }
 
-  /*
-   * Choice Answers (Bad Request if question is not of type CHOICE)
-   */
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey/{surveyId}/question")
+    public ResponseEntity createQuestion(
+        @PathVariable("surveyId") final Long surveyId, @RequestBody final QuestionDto questionDto) {
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey/{surveyId}/question/{questionId}/answer")
-  public void getAnswers(/* TODO */) {
-    throw new UnsupportedOperationException();
-  }
+        final QuestionDto createdQuestion = surveyManagementService.createQuestionInSurvey(surveyId, questionDto);
+        return ResponseEntity.ok().body(createdQuestion);
+    }
 
-  @RequestMapping(
-      method = RequestMethod.GET,
-      path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
-  public void getAnswer(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId,
-      @PathVariable("answerId") final Long answerId) {
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey/{surveyId}/question/{questionId}")
+    public void updateQuestion(
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId, @RequestBody final QuestionDto questionDto) {
 
-    throw new UnsupportedOperationException();
-  }
+        if (questionDto.getId() == null) {
+            questionDto.setId(questionId);
+        }
+        surveyManagementService.updateQuestionInSurvey(surveyId, questionDto);
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey/{surveyId}/question/{questionId}/answer")
-  public void createAnswer(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId) {
+    }
 
-    throw new UnsupportedOperationException();
-  }
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        path = "/survey/{surveyId}/question/{questionId}")
+    public void deleteQuestion(
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId) {
 
-  @RequestMapping(
-      method = RequestMethod.POST,
-      path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
-  public void updateAnswer(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId,
-      @PathVariable("answerId") final Long answerId) {
+        surveyManagementService.deleteQuestion(questionId);
+    }
 
-    throw new UnsupportedOperationException();
-  }
+    /*
+     * Choice Answers (Bad Request if question is not of type CHOICE)
+     */
 
-  @RequestMapping(
-      method = RequestMethod.DELETE,
-      path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
-  public void deleteAnswer(/* TODO */
-      @PathVariable("surveyId") final Long surveyId,
-      @PathVariable("questionId") final Long questionId,
-      @PathVariable("answerId") final Long answerId) {
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey/{surveyId}/question/{questionId}/answer")
+    public void getAnswers(/* TODO */) {
+        throw new UnsupportedOperationException();
+    }
 
-    throw new UnsupportedOperationException();
-  }
+    @RequestMapping(
+        method = RequestMethod.GET,
+        path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
+    public void getAnswer(/* TODO */
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId,
+        @PathVariable("answerId") final Long answerId) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey/{surveyId}/question/{questionId}/answer")
+    public void createAnswer(/* TODO */
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @RequestMapping(
+        method = RequestMethod.POST,
+        path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
+    public void updateAnswer(/* TODO */
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId,
+        @PathVariable("answerId") final Long answerId) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
+    public void deleteAnswer(/* TODO */
+        @PathVariable("surveyId") final Long surveyId,
+        @PathVariable("questionId") final Long questionId,
+        @PathVariable("answerId") final Long answerId) {
+
+        throw new UnsupportedOperationException();
+    }
 }
