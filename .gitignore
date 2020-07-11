@@ -30,3 +30,9 @@ build/
 ### VS Code ###
 .vscode/
 /*.log
+
+### local dev
+tools/
+
+### Git
+.history/
