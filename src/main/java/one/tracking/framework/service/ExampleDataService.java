@@ -20,6 +20,7 @@ import org.springframework.util.Assert;
 import one.tracking.framework.config.ReminderConfig;
 import one.tracking.framework.entity.User;
 import one.tracking.framework.entity.Verification;
+import one.tracking.framework.entity.VerificationState;
 import one.tracking.framework.entity.meta.Answer;
 import one.tracking.framework.entity.meta.IntervalType;
 import one.tracking.framework.entity.meta.ReleaseStatusType;
@@ -97,7 +98,8 @@ public class ExampleDataService {
     this.verificationRepository.save(Verification.builder()
         .email("foo@example.com")
         .hash("example")
-        .verified(true)
+        .state(VerificationState.VERIFIED)
+        .createdBy("TEST")
         .build());
 
     final User user = this.userRepository.save(User.builder()

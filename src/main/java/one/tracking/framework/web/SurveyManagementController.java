@@ -1,3 +1,6 @@
+/**
+ *
+ */
 package one.tracking.framework.web;
 
 import java.io.IOException;
@@ -8,12 +11,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
-import one.tracking.framework.dto.ParticipantInvitationDto;
+import javax.validation.constraints.Min;
 import one.tracking.framework.dto.meta.SurveyDto;
 import one.tracking.framework.dto.meta.question.QuestionDto;
-import one.tracking.framework.repo.ContainerRepository;
-import one.tracking.framework.repo.QuestionRepository;
-import one.tracking.framework.service.SurveyManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -28,103 +28,130 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import one.tracking.framework.dto.ParticipantInvitationDto;
+import one.tracking.framework.dto.TokenResponseDto;
+import one.tracking.framework.dto.ParticipantImportFeedbackDto;
+import one.tracking.framework.service.ParticipantService;
+import one.tracking.framework.service.SurveyManagementService;
 import springfox.documentation.annotations.ApiIgnore;
 
 /**
  * @author Marko Voß
+ *
  */
 @RestController
 @RequestMapping("/manage")
 public class SurveyManagementController {
 
-  /*@Autowired
-  private AuthService authService;*/
+  @Autowired
+  private ParticipantService participantService;
 
-    @Autowired
-    ContainerRepository containerRepository;
+  @Autowired
+  private SurveyManagementService surveyManagementService;
 
-    @Autowired
-    QuestionRepository questionRepository;
+  @RequestMapping(
+      method = RequestMethod.GET,
+      path = "/test")
+  public Authentication testAD(
+      @ApiIgnore
+      final Authentication authentication) {
 
-    @Autowired
-    private SurveyManagementService surveyManagementService;
+    return authentication;
+  }
+  /*
+   * Participants
+   */
 
-    @RequestMapping(
-        method = RequestMethod.GET,
-        path = "/test")
-    public Authentication testAD(
-        @ApiIgnore final Authentication authentication) {
+  @RequestMapping(
+      method = RequestMethod.POST,
+      path = "/participant/invite")
+  public void registerParticipant(
+      @RequestBody
+      @Valid
+      final ParticipantInvitationDto registration) throws IOException {
 
-        return authentication;
-    }
-    /*
-     * Participants
-     */
+    this.participantService.registerParticipant(
+        registration.getEmail(),
+        registration.getConfirmationToken(),
+        true);
+  }
 
-    @RequestMapping(
-        method = RequestMethod.POST,
-        path = "/participant/invite")
-    public void registerParticipant(
-        @RequestBody
-        @Valid final ParticipantInvitationDto registration,
-        @ApiIgnore final Authentication authentication) throws IOException {
+  @RequestMapping(
+      method = RequestMethod.POST,
+      path = "/participant/import",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public TokenResponseDto importParticipants(
+      @RequestParam("file")
+      final MultipartFile file,
+      @RequestParam("headerIndex")
+      final int selectedHeaderIndex) throws Exception {
 
-        // this.authService.registerParticipant(registration, true);
-    }
+    final String importToken = this.participantService.importParticipants(file, selectedHeaderIndex);
+    return TokenResponseDto.builder().token(importToken).build();
+  }
 
-    @RequestMapping(
-        method = RequestMethod.POST,
-        path = "/participant/import/upload",
-        consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public List<String> uploadParticipantsFile(
-        @RequestParam("file") final MultipartFile file,
-        @ApiIgnore final Authentication authentication) throws IOException {
-        return List.of();
-        // return this.authService.uploadParticipantsFile(null, file);
-    }
+  @RequestMapping(
+      method = RequestMethod.GET,
+      path = "/participant/import/{importId}")
+  public ParticipantImportFeedbackDto getImportedData(
+      @PathVariable(name = "importId")
+      final String importId,
+      @RequestParam(name = "startIndex", required = false)
+      @Min(0)
+      final Integer startIndex,
+      @RequestParam(name = "limit", required = false)
+      @Min(0)
+      final Integer limit) {
 
-    @RequestMapping(
-        method = RequestMethod.POST,
-        path = "/participant/import/perform")
-    public void importParticipants(
-        @RequestParam("headerIndex") final int selectedHeaderIndex,
-        @ApiIgnore final Authentication authentication) throws Exception {
+    return this.participantService.getImportedParticipants(importId, startIndex, limit);
+  }
 
-        //this.authService.performParticipantsImport(null, selectedHeaderIndex);
-    }
+  @RequestMapping(
+      method = RequestMethod.POST,
+      path = "/participant/import/{importId}")
+  public void cancelImport(
+      @PathVariable(name = "importId")
+      final String importId,
+      @RequestParam(name = "cancel", required = true)
+      final Boolean cancel) {
 
-    /*
-     * Export
-     */
+    if (cancel)
+      this.participantService.cancelImport(importId);
+  }
 
-    @RequestMapping(
-        method = RequestMethod.GET,
-        path = "/export")
-    public void export(
-        @RequestParam("from")
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime startTime,
-        @RequestParam("to")
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) final LocalDateTime endTime,
-        @ApiIgnore final HttpServletResponse response) throws IOException {
+  /*
+   * Export
+   */
 
-        Assert.isTrue(startTime.isBefore(endTime),
-            "'from' datetime value must be before 'to' datetime value.");
+  @RequestMapping(
+      method = RequestMethod.GET,
+      path = "/export")
+  public void export(
+      @RequestParam("from")
+      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+      final LocalDateTime startTime,
+      @RequestParam("to")
+      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+      final LocalDateTime endTime,
+      @ApiIgnore
+      final HttpServletResponse response) throws IOException {
 
-        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")
-            // .withLocale(Locale.UK)
-            .withZone(ZoneOffset.UTC);
+    Assert.isTrue(startTime.isBefore(endTime), "'from' datetime value must be before 'to' datetime value.");
 
-        final String filename = "export_" + formatter.format(Instant.now()) + ".xlsx";
+    final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")
+        // .withLocale(Locale.UK)
+        .withZone(ZoneOffset.UTC);
 
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response
-            .setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+    final String filename = "export_" + formatter.format(Instant.now()) + ".xlsx";
 
-        this.surveyManagementService.exportData(
-            startTime.toInstant(ZoneOffset.UTC),
-            endTime.toInstant(ZoneOffset.UTC),
-            response.getOutputStream());
-    }
+    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+
+    this.surveyManagementService.exportData(
+        startTime.toInstant(ZoneOffset.UTC),
+        endTime.toInstant(ZoneOffset.UTC),
+        response.getOutputStream());
+  }
 
     /*
      * Surveys
@@ -257,28 +284,34 @@ public class SurveyManagementController {
         @PathVariable("surveyId") final Long surveyId,
         @PathVariable("questionId") final Long questionId) {
 
-        throw new UnsupportedOperationException();
-    }
+    throw new UnsupportedOperationException();
+  }
 
-    @RequestMapping(
-        method = RequestMethod.POST,
-        path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
-    public void updateAnswer(/* TODO */
-        @PathVariable("surveyId") final Long surveyId,
-        @PathVariable("questionId") final Long questionId,
-        @PathVariable("answerId") final Long answerId) {
+  @RequestMapping(
+      method = RequestMethod.POST,
+      path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
+  public void updateAnswer(/* TODO */
+      @PathVariable("surveyId")
+      final Long surveyId,
+      @PathVariable("questionId")
+      final Long questionId,
+      @PathVariable("answerId")
+      final Long answerId) {
 
-        throw new UnsupportedOperationException();
-    }
+    throw new UnsupportedOperationException();
+  }
 
-    @RequestMapping(
-        method = RequestMethod.DELETE,
-        path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
-    public void deleteAnswer(/* TODO */
-        @PathVariable("surveyId") final Long surveyId,
-        @PathVariable("questionId") final Long questionId,
-        @PathVariable("answerId") final Long answerId) {
+  @RequestMapping(
+      method = RequestMethod.DELETE,
+      path = "/survey/{surveyId}/question/{questionId}/answer/{answerId}")
+  public void deleteAnswer(/* TODO */
+      @PathVariable("surveyId")
+      final Long surveyId,
+      @PathVariable("questionId")
+      final Long questionId,
+      @PathVariable("answerId")
+      final Long answerId) {
 
-        throw new UnsupportedOperationException();
-    }
+    throw new UnsupportedOperationException();
+  }
 }

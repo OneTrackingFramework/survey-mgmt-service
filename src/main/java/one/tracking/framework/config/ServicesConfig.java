@@ -6,6 +6,7 @@ package one.tracking.framework.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -15,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  */
 @Configuration
+@EnableAsync
 public class ServicesConfig {
 
   @Autowired
